@@ -12,8 +12,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /pocketbase
 
 FROM gcr.io/distroless/base-debian11 AS release
 
-RUN apk add --no-cache ca-certificates
-
 WORKDIR /
 
 COPY --from=build /pocketbase /pocketbase
