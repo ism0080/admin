@@ -82,7 +82,7 @@ func triggerGitHubWorkflow(url, token string) {
 }
 
 func scheduleTask(taskID int, taskFunc func()) {
-	duration := 5 * time.Minute
+	duration := 45 * time.Second
 	mutex.Lock()
 	defer mutex.Unlock()
 
