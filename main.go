@@ -19,18 +19,28 @@ type Task struct {
 	Action func()
 }
 
-const (
-	links_collection = "links"
-	links_task_id    = 1
-)
-
 var mutex sync.Mutex
 var taskQueue = make(map[int]*Task)
 
 func main() {
+	app := pocketbase.New()
+
+	linksCollectionActions(app)
+	projectsCollectionActions(app)
+
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func linksCollectionActions(app *pocketbase.PocketBase) {
+	const (
+		links_collection = "links"
+		links_task_id    = 1
+	)
+
 	docsRepoGHWebhookToken := os.Getenv("DOCS_REPO_GH_WEBHOOK_TOKEN")
 	docsRepoGHWebhookUrl := os.Getenv("DOCS_REPO_GH_WEBHOOK_URL")
-	app := pocketbase.New()
 
 	app.OnRecordAfterCreateRequest(links_collection).Add(func(e *core.RecordCreateEvent) error {
 		scheduleTask(links_task_id, func() { triggerGitHubWorkflow(docsRepoGHWebhookUrl, docsRepoGHWebhookToken) })
@@ -49,10 +59,34 @@ func main() {
 
 		return nil
 	})
+}
 
-	if err := app.Start(); err != nil {
-		log.Fatal(err)
-	}
+func projectsCollectionActions(app *pocketbase.PocketBase) {
+	const (
+		projects_collection = "projects"
+		projects_task_id    = 2
+	)
+
+	profileRepoGHWebhookToken := os.Getenv("PROFILE_REPO_GH_WEBHOOK_TOKEN")
+	profileRepoGHWebhookUrl := os.Getenv("PROFILE_REPO_GH_WEBHOOK_URL")
+
+	app.OnRecordAfterCreateRequest(projects_collection).Add(func(e *core.RecordCreateEvent) error {
+		scheduleTask(projects_task_id, func() { triggerGitHubWorkflow(profileRepoGHWebhookUrl, profileRepoGHWebhookToken) })
+
+		return nil
+	})
+
+	app.OnRecordAfterUpdateRequest(projects_collection).Add(func(e *core.RecordUpdateEvent) error {
+		scheduleTask(projects_task_id, func() { triggerGitHubWorkflow(profileRepoGHWebhookUrl, profileRepoGHWebhookToken) })
+
+		return nil
+	})
+
+	app.OnRecordAfterDeleteRequest(projects_collection).Add(func(e *core.RecordDeleteEvent) error {
+		scheduleTask(projects_task_id, func() { triggerGitHubWorkflow(profileRepoGHWebhookUrl, profileRepoGHWebhookToken) })
+
+		return nil
+	})
 }
 
 func triggerGitHubWorkflow(url, token string) {
